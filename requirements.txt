@@ -1,0 +1,7 @@
+numpy
+matplotlib
+svgutils
+cairosvg
+qiskit
+qiskit-aer
+pylatexenc
