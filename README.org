@@ -35,6 +35,7 @@ These are scripts and utilities for the BB84 project.
 *** Download frames/clips
 
 The frames and clips are stored at [[https://mega.nz/folder/9WZmyYCR#E1padX062WtV4hcmmuhTGA][https://mega.nz/folder/9WZmyYCR#E1padX062WtV4hcmmuhTGA]]
+and [[https://drive.google.com/drive/folders/1RoI0nVuxQE_02RrG49R2ZYG5NRMj_YNz?usp=drive_link][https://drive.google.com/drive/folders/1RoI0nVuxQE_02RrG49R2ZYG5NRMj_YNz?usp=drive_link]]
 
 
 *** Requirements
