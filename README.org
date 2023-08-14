@@ -32,6 +32,11 @@ These are scripts and utilities for the BB84 project.
   - 2 - horizontal
 
 
+*** Download frames/clips
+
+The frames and clips are stored at [[https://mega.nz/folder/9WZmyYCR#E1padX062WtV4hcmmuhTGA][https://mega.nz/folder/9WZmyYCR#E1padX062WtV4hcmmuhTGA]]
+
+
 *** Requirements
 
 - ~python >= 3.6~
