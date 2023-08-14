@@ -1,0 +1,61 @@
+#+AUTHOR: phdenzel
+#+TITLE: BB84 for SoME3
+#+DATE: 2023-08-14 Mon
+#+OPTIONS: author:nil title:t date:nil timestamp:nil toc:nil num:nil \n:nil
+
+These are scripts and utilities for the BB84 project.
+
+- ~svg_components.py~: generates the individual SVG files in ~assets/images~
+- ~layout.py~: composes SVG Figures from individual SVG components
+- ~anim.py~: produces animation frames from PNG-converted SVG Figures
+- ~bb84.py~: BB84 algorithm implemented in qiskit
+
+**** Frame naming scheme
+#+begin_src
+  {scene}_{alice:detector}-{bob:detector}.{signal}.{polarisation}
+#+end_src
+
+- scene
+  - ~transmission~
+  - ~transition~
+  - ~TODO~
+- detector
+  - 0 - ~assets/images/detector0.svg~
+  - 1 - ~assets/images/detector1.svg~
+- signal
+  - 0 - ~assets/images/wave0.svg~
+  - 1 - ~assets/images/wave1.svg~
+  - etc. 
+- polarisation
+  - 0 - no perspective
+  - 1 - vertical
+  - 2 - horizontal
+
+
+*** Requirements
+
+- ~python >= 3.6~
+- ~numpy~
+- ~matplotlib~
+- ~bb84.py~
+  - ~qiskit~
+  - ~qiskit-aer~
+  - ~pylatexenc~
+- ~layout.py~ & ~anim.py~
+  - ~svgutils~
+  - ~cairosvg~
+  - ~Pillow~
+- ~compile_clips.sh~
+  - ~ffmpeg~
+
+
+*** Install
+
+Best to run the code from a virtual python environment (should work with anything above 3.6)
+#+begin_src shell
+  virtualenv venv
+  source venv/bin/activate
+  pip install -r requirements.txt
+#+end_src
+
+  

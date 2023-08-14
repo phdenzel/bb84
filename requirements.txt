@@ -1,5 +1,6 @@
 numpy
 matplotlib
+Pillow
 svgutils
 cairosvg
 qiskit
