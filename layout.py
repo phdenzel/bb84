@@ -34,7 +34,9 @@ class BB84Setup:
     eve_color = "#E83A82"
     signal_color = "#FFD787"
     public_color = "#F6F9FE"
-    
+    font_family = "Source Sans Pro"
+    font_size = 64
+
 
     def __init__(self,
                  resolution=(4096, 2160),
@@ -63,9 +65,6 @@ class BB84Setup:
         self.alice_index = self.default_index(alice_index, 'alice')
         self.bob_index = self.default_index(bob_index, 'bob')
         self.head_icons = head_icons
-        # if isinstance(head_icons, (list, tuple)):
-        #     self.head_icons = {'alice': head_icons[0],
-        #                        'bob': head_icons[1]}
         if detector_icons is None:
             self.detector_icons = {
                 'alice': self.load_detector_svgs(self.icon_base),
@@ -88,7 +87,7 @@ class BB84Setup:
             index = {}
         sign = 1 if party.lower() == 'alice' else -1
         u_vec = lambda x, y: [sign*x, sign*y]
-        det_x, det_y = 0.09, 0.09
+        det_x, det_y = 0.09, 0.12
         index.setdefault('name', party)
         index.setdefault('head', 0 if party.lower() == 'alice' else 1)
         index.setdefault('sign', 1 if party.lower() == 'alice' else -1)
@@ -104,7 +103,15 @@ class BB84Setup:
         index.setdefault('signal_y_adjust', 0.15)
         index.setdefault('signal_distance', None)
         index.setdefault('signal_alpha', 1)
+        index.setdefault('signal_polarisation', 0)
         index.setdefault('is_sender', party.lower() == 'alice')
+        index.setdefault('tally', [])
+        index.setdefault('tally_bases', [])
+        index.setdefault('tally_scale', 2.5)
+        index.setdefault('tally_bases_scale', 1.0)
+        index.setdefault('tally_offset', u_vec(0.1*det_x, 3*det_y))
+        index.setdefault('tally_bases_offset', u_vec(0.1*det_x, 3*det_y))
+        index.setdefault('tally_bases_x_adjust', 0.01)
         return index
 
     def set_index(self, party, **kwargs):
@@ -132,7 +139,7 @@ class BB84Setup:
             + np.array(index['head_offset'])
         prefix = offsetkey.replace('_offset', '')
         offsetkey = f'{prefix}_offset'
-        icons = getattr(self, f'{prefix}_icons')
+        icons = getattr(self, f'{prefix}_icons') if hasattr(self, f'{prefix}_icons') else None
         if isinstance(icons, dict):
             icons = icons[index['name']]
         center = np.array([0, 0])
@@ -177,6 +184,7 @@ class BB84Setup:
                                       color={'stroke': color})
         detector.moveto(*self.position(index, 'detector'), index['detector_scale'])
         detector.rotate(index['detector_rotation'])
+        detector.skew(0, -30)
         components.append(detector)
         return sc.Panel(*components)
 
@@ -189,6 +197,26 @@ class BB84Setup:
     def setup_eve(self):
         return None
 
+    def setup_tally(self):
+        layouts = []
+        # Alice's tally
+        components = []
+        tpos = self.alice_position('tally')
+        bpos = self.alice_position('tally_bases')
+        index = self.alice_index
+        txt = self.set_svg_color(sc.Text(f" ".join([str(t) for t in index['tally']]),
+                                         font=self.font_family, size=self.font_size),
+                                 color={'fill': self.public_color},
+                                 default_color='black')
+        txt.moveto(*tpos, index['tally_scale'])
+        components.append(txt)
+        for b in self.alice_index['tally_bases']:
+            pass
+        layouts.append(sc.Panel(*components))
+        # Bob's tally
+        #components.append(detector)
+        return layouts
+
     def setup_signal(self):
         # signal
         party = 'alice' if self.alice_index['is_sender'] else 'bob'
@@ -198,6 +226,16 @@ class BB84Setup:
         signal = self.set_svg_color(self.signal_icons[party][index['signal']],
                                     color={'stroke': self.signal_color})
         if index['is_sender']:
+            if index['signal_polarisation'] == 1:
+                index['signal_y_adjust'] *= 1.3
+                index['signal_offset'][0] *= 2/3
+                index['signal_offset'][1] *= 2/3
+            elif index['signal_polarisation'] == 2:
+                index['signal_offset'][0] *= 1.333
+                index['signal_offset'][1] *= 1.083
+                other['signal_offset'][0] /= 2
+                other['signal_offset'][1] /= 2
+                index['signal_y_adjust'] *= 1.2
             p_signal, rot_signal = \
                 self.signal_lerp(
                     self.position(index, 'signal', use_center=True),
@@ -207,6 +245,11 @@ class BB84Setup:
             if list(p_signal):
                 signal.moveto(*p_signal, index['signal_scale'])
                 signal.rotate(*rot_signal)
+                if index['signal_polarisation'] == 1:
+                    signal.skew_x(30)
+                    signal.rotate(10)
+                elif index['signal_polarisation'] == 2:
+                    signal.skew_x(-40)
                 components.append(signal)
         # lay quantum connection
         # quantum_bridge = sc.Line(
@@ -233,14 +276,18 @@ class BB84Setup:
         if eve_layout:
             eve_svg = sc.Figure(*[str(r) for r in self.resolution], eve_layout)
             content.append(eve_svg)
+        # add tallies for both parties
+        tally_layout = self.setup_tally()
+        if tally_layout:
+            tally_svg = [sc.Figure(*[str(r) for r in self.resolution], t) for t in tally_layout]
+            content += tally_svg
         # signal between the parties
         signal_layout = self.setup_signal()
         if signal_layout:
             signal_svg = sc.Figure(*[str(r) for r in self.resolution], signal_layout)
             content.append(signal_svg)
         # stack layers for a scenario 
-        figures = [sc.Figure(*[str(r) for r in self.resolution], c)
-                   for c in content]
+        figures = [sc.Figure(*[str(r) for r in self.resolution], c) for c in content]
         try:
             return [self.pixelate_svg(svg, color=None) for svg in figures]
         except cairocffi.CairoError:
@@ -266,6 +313,9 @@ class BB84Setup:
             color = {}
         for key in color:
             for e in svgobj.root.iter():
+                style = e.get(key)
+                if style == default_color.lower():
+                    e.set(key, color[key].lower())
                 style = e.get('style')
                 if style and key in style:
                     e.set('style', style.replace(f'{key}: {default_color.lower()}',
@@ -304,7 +354,14 @@ if __name__ == "__main__":
     img_base = Path("assets/images")
     layout = BB84Setup(head_icons=[sc.SVG(img_base/"alice_text.svg"),
                                    sc.SVG(img_base/"bob_text.svg")])
-    layout.set_index('alice', detector=0, signal_distance=0.2, signal_alpha=0.4)
+    layout.set_index('alice', detector=0,
+                     signal_distance=1.0, signal_alpha=1.0,
+                     signal_polarisation=1,
+                     tally=[1, 0, 1, 1], tally_bases=[1, 0, 0, 1],
+                     )
+    layout.set_index('bob', detector=0,
+                     tally=[1, 0, 1, 1], tally_bases=[1, 0, 0, 1],
+                     )
     plt.style.use('dark_background')
     layout.plot()
     plt.axis('off')
