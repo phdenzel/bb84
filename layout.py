@@ -7,15 +7,11 @@ from PIL import Image
 from io import BytesIO
 from matplotlib import pyplot as plt
 
-
-def pixelate_svg(svgobj, color={'stroke': '#ffffff'}):
-    svgstr = svgobj.tostr()
-    for ckey in color:
-        svgstr = svgstr.replace(
-            bytes(f'{ckey}: #ffffff', encoding='utf-8'),
-            bytes(f'{ckey}: {color[ckey]}', encoding='utf-8'))
-    png = cairosvg.svg2png(svgstr)
-    return Image.open(BytesIO(png))
+def brighten(hex_color, factor):
+    hex_color = hex_color.lstrip('#')
+    rgb_color = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    brighter = tuple(min(255, int(channel + 255 * factor)) for channel in rgb_color)
+    return '#{:02X}{:02X}{:02X}'.format(*brighter)
 
 
 class BB84Setup:
@@ -36,7 +32,6 @@ class BB84Setup:
     public_color = "#F6F9FE"
     font_family = "Source Sans Pro"
     font_size = 64
-
 
     def __init__(self,
                  resolution=(4096, 2160),
@@ -95,6 +90,8 @@ class BB84Setup:
         index.setdefault('head_offset', u_vec(0.08, 0.05))
         index.setdefault('detector', 0)
         index.setdefault('detector_scale', 1.0)
+        index.setdefault('detector_color',
+                         self.alice_color if party.lower() == 'alice' else self.bob_color)
         index.setdefault('detector_rotation', 0)
         index.setdefault('detector_offset', u_vec(det_x, det_y))
         index.setdefault('signal', 0)
@@ -172,6 +169,7 @@ class BB84Setup:
         # fetch settings
         index = getattr(self, f'{party}_index')
         color = getattr(self, f'{party}_color')
+        detector_color = index['detector_color']
         components = []
         # head
         if self.head_icons:
@@ -181,7 +179,7 @@ class BB84Setup:
             components.append(head)
         # detector
         detector = self.set_svg_color(self.detector_icons[party][index['detector']],
-                                      color={'stroke': color})
+                                      color={'stroke': detector_color})
         detector.moveto(*self.position(index, 'detector'), index['detector_scale'])
         detector.rotate(index['detector_rotation'])
         detector.skew(0, -30)
