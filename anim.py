@@ -1,4 +1,5 @@
 from pathlib import Path
+from copy import deepcopy
 import numpy as np
 import svgutils.compose as sc
 from matplotlib import pyplot as plt
@@ -13,12 +14,12 @@ def transmission(img_base, seconds, fps,
     base = Path(f"frames/transmission_{alice_detector}-{bob_detector}.{signal}.{polarisation}")
     base.mkdir(parents=True, exist_ok=True)
     t = np.linspace(0, seconds, seconds*fps)
+    head_icons = [sc.SVG(img_base/"alice_text.svg"), sc.SVG(img_base/"bob_text.svg")]
     for i, ti in enumerate(t):
         filename = base / f"frame_{i:05d}.png"
         plt.axis('off')
         plt.style.use('dark_background')
-        layout = BB84Setup(head_icons=[sc.SVG(img_base/"alice_text.svg"),
-                                       sc.SVG(img_base/"bob_text.svg")])
+        layout = BB84Setup(head_icons=[deepcopy(h) for h in head_icons])
         ti = ti % 1
         alpha = min(1, 100 * np.exp(-0.5*(ti-0.5)**2/0.1**2) / (sq2pi*0.1))
         print(filename)
@@ -89,6 +90,11 @@ def detection(img_base, seconds, fps,
         plt.savefig(filename, transparent=True)
         plt.gcf().clear()
 
+def tally_scenario(img_base, seconds, fps,
+                   alice_tally, alice_bases,
+                   bob_tally, bob_bases):
+    pass
+
 
 if __name__ == "__main__":
     fps = 180
@@ -119,3 +125,6 @@ if __name__ == "__main__":
             for b in range(2):
                 for t in ['bob', 'alice']:
                     detection(img_base, seconds, fps/3, a, b, t)
+
+    # tally scenario
+

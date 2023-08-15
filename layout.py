@@ -1,4 +1,5 @@
 from pathlib import Path
+from copy import deepcopy
 import numpy as np
 import svgutils.compose as sc
 import cairosvg
@@ -103,12 +104,19 @@ class BB84Setup:
         index.setdefault('signal_polarisation', 0)
         index.setdefault('is_sender', party.lower() == 'alice')
         index.setdefault('tally', [])
-        index.setdefault('tally_bases', [])
         index.setdefault('tally_scale', 2.5)
-        index.setdefault('tally_bases_scale', 1.0)
-        index.setdefault('tally_offset', u_vec(0.1*det_x, 3*det_y))
-        index.setdefault('tally_bases_offset', u_vec(0.1*det_x, 3*det_y))
-        index.setdefault('tally_bases_x_adjust', 0.01)
+        index.setdefault('tally_x_adjust', 0.05)
+        index.setdefault('tally_color',
+                         self.alice_color if party.lower() == 'alice' else self.bob_color)
+        index.setdefault('tally_offset', u_vec(-0.2*det_x, 3*det_y)
+                         if party.lower() == 'alice' else u_vec(1.58*det_x, 2.8*det_y))
+        index.setdefault('tally_bases', [])
+        index.setdefault('tally_bases_scale', 0.5)
+        index.setdefault('tally_bases_x_adjust', 0.05)
+        index.setdefault('tally_bases_color',
+                         self.alice_color if party.lower() == 'alice' else self.bob_color)
+        index.setdefault('tally_bases_offset', u_vec(-0.32*det_x, 3.2*det_y)
+                         if party.lower() == 'alice' else u_vec(1.7*det_x, 4.0*det_y))
         return index
 
     def set_index(self, party, **kwargs):
@@ -156,6 +164,25 @@ class BB84Setup:
         return self.position(self.bob_index,
                              offsetkey=offsetkey, use_center=use_center)
 
+    def tally_array(self, bits_position, bases_position, index, default_color='black'):
+        array = []
+        x_shift = np.array([index['tally_x_adjust']*self.resolution[0], 0])
+        for i, t in enumerate(index['tally']):
+            txt = sc.Text(str(t), font=self.font_family, size=self.font_size)
+            txt = self.set_svg_color(txt, color={'fill': index['tally_color']},
+                                     default_color=default_color)
+            txt.moveto(*(bits_position+i*x_shift), index['tally_scale'])
+            array.append(txt)
+        x_shift = np.array([index['tally_bases_x_adjust']*self.resolution[0], 0])
+        for i, b in enumerate(index['tally_bases']):
+            base = [deepcopy(j) for j in self.activation_icons[index['name']][b]]
+            for component in base:
+                component = self.set_svg_color(
+                    component, color={'stroke': index['tally_color']})
+                component.moveto(*(bases_position+i*x_shift), index['tally_bases_scale'])
+                array.append(component)
+        return array
+
     def signal_lerp(self, A, B, fraction, y_adjust=0, scale=1):
         position = []
         rotation = []
@@ -199,17 +226,18 @@ class BB84Setup:
         layouts = []
         # Alice's tally
         components = []
-        tpos = self.alice_position('tally')
-        bpos = self.alice_position('tally_bases')
-        index = self.alice_index
-        txt = self.set_svg_color(sc.Text(f" ".join([str(t) for t in index['tally']]),
-                                         font=self.font_family, size=self.font_size),
-                                 color={'fill': self.public_color},
-                                 default_color='black')
-        txt.moveto(*tpos, index['tally_scale'])
-        components.append(txt)
-        for b in self.alice_index['tally_bases']:
-            pass
+        components += self.tally_array(self.alice_position('tally'),
+                                       self.alice_position('tally_bases'),
+                                       self.alice_index)
+        components += self.tally_array(self.bob_position('tally'),
+                                       self.bob_position('tally_bases'),
+                                       self.bob_index)
+        # txt = self.set_svg_color(sc.Text(f" ".join([str(t) for t in index['tally']]),
+        #                                  font=self.font_family, size=self.font_size),
+        #                          color={'fill': self.public_color},
+        #                          default_color='black')
+        # txt.moveto(*tpos, index['tally_scale'])
+        # components.append(txt)
         layouts.append(sc.Panel(*components))
         # Bob's tally
         #components.append(detector)
@@ -291,6 +319,20 @@ class BB84Setup:
         except cairocffi.CairoError:
             return []
 
+    def image_tally(self):
+        content = []
+        # add tallies for both parties
+        tally_layout = self.setup_tally()
+        if tally_layout:
+            tally_svg = [sc.Figure(*[str(r) for r in self.resolution], t) for t in tally_layout]
+            content += tally_svg
+        # stack layers for a scenario
+        figures = [sc.Figure(*[str(r) for r in self.resolution], c) for c in content]
+        try:
+            return [self.pixelate_svg(svg, color=None) for svg in figures]
+        except cairocffi.CairoError:
+            return []
+
     def plot(self):
         svgs = self.images()
         if not svgs:
@@ -303,6 +345,16 @@ class BB84Setup:
         index = getattr(self, f'{party}_index')
         img = plt.imshow(svgs[-1], alpha=index['signal_alpha'])
         images.append(img)
+        return images
+
+    def plot_tally(self):
+        svgs = self.image_tally()
+        if not svgs:
+            return svgs
+        images = []
+        for svg in svgs:
+            img = plt.imshow(svg)
+            images.append(img)
         return images
 
     @staticmethod
@@ -353,14 +405,15 @@ if __name__ == "__main__":
     layout = BB84Setup(head_icons=[sc.SVG(img_base/"alice_text.svg"),
                                    sc.SVG(img_base/"bob_text.svg")])
     layout.set_index('alice', detector=0,
-                     signal_distance=1.0, signal_alpha=1.0,
-                     signal_polarisation=1,
+                     signal_distance=0.0, signal_alpha=1.0,
+                     signal_polarisation=2,
                      tally=[1, 0, 1, 1], tally_bases=[1, 0, 0, 1],
                      )
     layout.set_index('bob', detector=0,
                      tally=[1, 0, 1, 1], tally_bases=[1, 0, 0, 1],
                      )
     plt.style.use('dark_background')
-    layout.plot()
+    # layout.plot()
+    layout.plot_tally()
     plt.axis('off')
     plt.show()
